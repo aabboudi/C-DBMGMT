@@ -3,12 +3,11 @@
 #include <string.h>
 #include <stdbool.h>
 #include <windows.h>
-#include <ctype.h> //toupper()
+#include <ctype.h>
 #define buffer 256
 #define fn "bulletin.txt"
 
 // ADD FOPEN VERIFIER
-// ADD TOUPPER
 
 typedef struct etudiant {
 	int code;
@@ -16,6 +15,8 @@ typedef struct etudiant {
 	float noteE, noteO;
 }etudiant;
 
+char *str_toupper(char*t);
+bool io_struct(FILE*fp, etudiant*profil, char mode);
 bool verif_code(int code);
 int ajouter();
 void afficher();
@@ -23,7 +24,6 @@ void modifier();
 void supprimer();
 void moyenne_classe();
 void liste_admis();
-// void envelope_structure(FILE*fp, etudiant*profil);
 
 int main() {
 
@@ -36,6 +36,7 @@ int main() {
 		scanf("%d", &op);
 
 		FILE*fp=fopen(fn, "a");
+		if(fp==NULL) {printf("Erreur 404.\nFichier introuvable."); return 1;}
 		fclose(fp);
 
 		switch(op) {
@@ -61,8 +62,29 @@ int main() {
 	return 0;
 }
 
+char *str_toupper(char*t) {
+	for(int i=0; i<strlen(t); i++) {
+		t[i]=toupper(t[i]);
+	}
+	return t;
+}
+
+bool io_struct(FILE*fp, etudiant*profil, char mode) {
+	if(mode=='i') {
+		fscanf(fp, "%d | %s | %s | %.2f | %.2f\n", &profil->code, profil->nom, profil->prenom, &profil->noteE, &profil->noteO);
+		return true;
+	}
+	if(mode=='o') {
+		fprintf(fp, "%d | %s | %s | %.2f | %.2f\n", profil->code, str_toupper(profil->nom), str_toupper(profil->prenom), profil->noteE, profil->noteO);
+		return true;
+	}
+	return false;
+}
+
 bool verif_code(int code) {
 	FILE*fp=fopen(fn, "r");
+	if(fp==NULL) {printf("Erreur 404.\nFichier introuvable."); return false;}
+
 	int temp_code;
 	char new_line_finder;
 	while(fscanf(fp, "%d", &temp_code) && !feof(fp)) {
@@ -76,7 +98,6 @@ bool verif_code(int code) {
 }
 
 int ajouter() {
-
 	etudiant profil;
 	printf("\nNouvel etudiant\nInput du profil\n");
 	printf("Code: ");
@@ -94,15 +115,17 @@ int ajouter() {
 	scanf("%f", &profil.noteO);
 
 	FILE*fp=fopen(fn, "a");
-	fprintf(fp, "%d | %s | %s | %.2f | %.2f\n", profil.code, profil.nom, profil.prenom, profil.noteE, profil.noteO);
+	// if(fp==NULL) {printf("Erreur 404.\nFichier introuvable."); return 1;} UNNECESSARY BECAUSE VERIF_CODE() DOES THE CHECKING
+	io_struct(fp, &profil, 'o');
 	fclose(fp);
 	
 	printf("Profil ajoute.");
 	return 0;
 }
 
-void afficher() {
+void afficher() { // UPDATE
 	FILE*fp=fopen(fn, "r");
+	if(fp==NULL) {printf("Erreur 404.\nFichier introuvable."); return;}
 	etudiant profil;
 	int code;
 	char new_line_finder;
@@ -114,7 +137,7 @@ void afficher() {
 		printf("%d\n", profil.code);
 		if(profil.code==code) {
 			fscanf(fp, " | %s | %s | %f | %f\n", profil.nom, profil.prenom, &profil.noteE, &profil.noteO);
-			printf("L\'etudiant ayant le code %d est %s %s, ses notes sont %f et %f.", profil.code, profil.nom, profil.prenom, profil.noteE, profil.noteO);
+			printf("Les notes de l\'etudiant code %d, %s %s, sont %.2f et %.2f\n", profil.code, profil.nom, profil.prenom, profil.noteE, profil.noteO);
 			return;
 		} else {
 			while((new_line_finder=fgetc(fp))!='\n') {
@@ -129,18 +152,19 @@ void modifier() {
 	char fn_target[]="bulletin_target.txt";
 	FILE*fp=fopen(fn, "r");
 	FILE*fp_target=fopen(fn_target, "a");
+	if(fp==NULL||fp_target==NULL) {printf("Erreur 404.\nFichier introuvable."); return;}
 	int code_a_chercher, i;
 	etudiant profil;
 
 	printf("Entrez le code de l\'etudiant a modifier: ");
 	scanf("%d", &code_a_chercher);
 
-	while(fscanf(fp, "%d | %s | %s | %f | %f", &profil.code, profil.nom, profil.prenom, &profil.noteE, &profil.noteO) && !feof(fp)) {
+	while(io_struct(fp, &profil, 'i') && !feof(fp)) {
 		if(code_a_chercher==profil.code) {
 			printf("Le nom de l\'etudiant est %s. Entrez le nouveau nom: ", profil.nom);
 			scanf("%s", profil.nom);
 		}
-		fprintf(fp_target, "%d | %s | %s | %.2f | %.2f\n", profil.code, profil.nom, profil.prenom, profil.noteE, profil.noteO);
+		io_struct(fp_target, &profil, 'o');
 	}
 
 	fclose(fp);
@@ -153,15 +177,16 @@ void supprimer() {
 	char fn_target[]="bulletin_target.txt";
 	FILE*fp=fopen(fn, "r");
 	FILE*fp_target=fopen(fn_target, "a");
+	if(fp==NULL||fp_target==NULL) {printf("Erreur 404.\nFichier introuvable."); return;}
 	int code_a_chercher, i;
 	etudiant profil;
 
 	printf("Entrez le code de l\'etudiant a supprimer: ");
 	scanf("%d", &code_a_chercher);
 
-	while(fscanf(fp, "%d | %s | %s | %f | %f", &profil.code, profil.nom, profil.prenom, &profil.noteE, &profil.noteO) && !feof(fp)) {
+	while(io_struct(fp, &profil, 'i') && !feof(fp)) {
 		if(code_a_chercher!=profil.code) {
-			fprintf(fp_target, "%d | %s | %s | %.2f | %.2f\n", profil.code, profil.nom, profil.prenom, profil.noteE, profil.noteO);
+			io_struct(fp_target, &profil, 'o');
 		}
 	}
 
@@ -173,11 +198,12 @@ void supprimer() {
 
 void moyenne_classe() {
 	FILE*fp=fopen(fn, "r");
+	if(fp==NULL) {printf("Erreur 404.\nFichier introuvable."); return;}
 	etudiant profil;
 	float total=0;
 	int i=0;
 
-	while(fscanf(fp, "%d | %s | %s | %f | %f", &profil.code, profil.nom, profil.prenom, &profil.noteE, &profil.noteO) && !feof(fp)) {
+	while(io_struct(fp, &profil, 'i') && !feof(fp)) {
 		total+=profil.noteE+profil.noteO;
 		i+=2;
 	}
@@ -188,11 +214,12 @@ void moyenne_classe() {
 
 void liste_admis() {
 	FILE*fp=fopen(fn, "r");
+	if(fp==NULL) {printf("Erreur 404.\nFichier introuvable."); return;}
 	etudiant profil;
 	bool admis=false;
 
 	printf("Liste des admis:\n");
-	while(fscanf(fp, "%d | %s | %s | %f | %f", &profil.code, profil.nom, profil.prenom, &profil.noteE, &profil.noteO) && !feof(fp)) {
+	while(io_struct(fp, &profil, 'i') && !feof(fp)) {
 		if((profil.noteE+profil.noteO)/2>=10) {
 			printf("%d | %s | %s\n", profil.code, profil.nom, profil.prenom);
 			admis=true;
